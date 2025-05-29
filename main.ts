@@ -104,9 +104,9 @@ export default class JoePlugin extends Plugin {
 					if (href && href.includes("readwise.io")) {
 						// Search for the Readwise article in your vault
 						const articleContent =
-							await this.findReadwiseArticleByUrl(href);
+							await this.findReadwiseArticleByUrl(href, target);
 						if (articleContent) {
-							this.showHoverPopup(target, articleContent);
+							// this.showHoverPopup(target, articleContent);
 						}
 					}
 				}
@@ -129,7 +129,11 @@ export default class JoePlugin extends Plugin {
 	}
 
 	// Helper to search for Readwise article by URL
-	async findReadwiseArticleByUrl(url: string): Promise<string | null> {
+	// Add a cancelable clipboard copy with delay
+	async findReadwiseArticleByUrl(
+		url: string,
+		target?: HTMLElement
+	): Promise<string | null> {
 		console.log(`Searching for Readwise article with URL: ${url}`);
 		const files = this.app.vault.getMarkdownFiles();
 		for (const file of files) {
@@ -179,6 +183,31 @@ export default class JoePlugin extends Plugin {
 							markdownUrlWithHighlight = `[${metadata.title}](${urlWithHighlight})`;
 							popupText += `\n${markdownUrl}`;
 							popupText += `\n${markdownUrlWithHighlight}`;
+							if (target) {
+								const mouseLeaveHandler = () => {
+									clearTimeout(copyTimeout);
+									target.removeEventListener(
+										"mouseleave",
+										mouseLeaveHandler
+									);
+								};
+								target.addEventListener(
+									"mouseleave",
+									mouseLeaveHandler
+								);
+								const copyTimeout = setTimeout(async () => {
+									target.removeEventListener(
+										"mouseleave",
+										mouseLeaveHandler
+									);
+									await navigator.clipboard.writeText(
+										markdownUrlWithHighlight
+									);
+									new Notice(
+										"Markdown URL with highlight copied to clipboard!"
+									);
+								}, 500);
+							}
 							console.log("Markdown URL:", markdownUrl);
 							console.log(
 								"Markdown URL with highlight:",
