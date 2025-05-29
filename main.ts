@@ -138,132 +138,122 @@ export default class JoePlugin extends Plugin {
 		const files = this.app.vault.getMarkdownFiles();
 		for (const file of files) {
 			const content = await this.app.vault.read(file);
-			if (content.includes(url)) {
-				const lines = content.split("\n");
-				for (const line of lines) {
-					if (line.trim().startsWith("- ") && line.includes(url)) {
-						const fullListItem = line.trim();
-						// Remove '- ' from start
-						let highlight = fullListItem.replace(/^-\s*/, "");
-						// Remove everything after (View Highlight) including (View Highlight)
-						highlight = highlight.replace(
-							/\(\[View Highlight\]\([^)]*\)\).*/,
-							""
-						);
-						// Remove all markdown links: [text](url)
-						highlight = highlight.replace(
-							/\[([^\]]+)\]\([^)]*\)/g,
-							"$1"
-						);
-						// Remove any remaining HTML tags
-						highlight = highlight.replace(/<[^>]+>/g, "");
-						const snippet = highlight.substring(0, 200) + "...";
-						const metadata = await this.getMetadataFromNote(file);
-						// Create a text fragment using start,end format for highlight
-						let highlight_start_end = "";
-						const highlightWords = highlight
-							.split(/\s+/)
-							.filter(Boolean);
-						if (highlightWords.length > 10) {
-							// Use first 5 and last 5 words for start,end
-							const start = highlightWords.slice(0, 5).join(" ");
-							const end = highlightWords.slice(-5).join(" ");
-							highlight_start_end = `${encodeURIComponent(
-								start
-							)},${encodeURIComponent(end)}`;
-						} else {
-							highlight_start_end = encodeURIComponent(highlight);
-						}
-						let popupText = `From note: ${file.basename}\n${snippet}`;
-						let markdownUrl = "";
-						let markdownUrlWithHighlight = "";
-						if (metadata.title && metadata.url) {
-							markdownUrl = `[${metadata.title}](${metadata.url})`;
-							const urlWithHighlight = `${metadata.url}#:~:text=${highlight_start_end}`;
-							markdownUrlWithHighlight = `[${metadata.title}](${urlWithHighlight})`;
-							popupText += `\n${markdownUrl}`;
-							popupText += `\n${markdownUrlWithHighlight}`;
-							if (target) {
-								let metaKeyHeld = false;
-								let altKeyHeld = false;
-								const mouseMoveHandler = (e: MouseEvent) => {
-									metaKeyHeld = e.metaKey;
-									altKeyHeld = e.altKey;
-								};
-								const mouseLeaveHandler = () => {
-									clearTimeout(copyTimeout);
-									target.removeEventListener(
-										"mouseleave",
-										mouseLeaveHandler
-									);
-									target.removeEventListener(
-										"mousemove",
-										mouseMoveHandler
-									);
-								};
-								target.addEventListener(
+			if (!content.includes(url)) continue;
+			const lines = content.split("\n");
+			for (const line of lines) {
+				const trimmed = line.trim();
+				if (trimmed.startsWith("- ") && trimmed.includes(url)) {
+					let highlight = trimmed.replace(/^-\s*/, "");
+					highlight = highlight.replace(
+						/\(\[View Highlight\]\([^)]*\)\).*/,
+						""
+					);
+					highlight = highlight.replace(
+						/\[([^\]]+)\]\([^)]*\)/g,
+						"$1"
+					);
+					highlight = highlight.replace(/<[^>]+>/g, "");
+					const snippet = highlight.substring(0, 200) + "...";
+					const metadata = await this.getMetadataFromNote(file);
+					const highlightWords = highlight
+						.split(/\s+/)
+						.filter(Boolean);
+					let highlight_start_end = "";
+					if (highlightWords.length > 10) {
+						const start = highlightWords.slice(0, 5).join(" ");
+						const end = highlightWords.slice(-5).join(" ");
+						highlight_start_end = `${encodeURIComponent(
+							start
+						)},${encodeURIComponent(end)}`;
+					} else {
+						highlight_start_end = encodeURIComponent(highlight);
+					}
+					let popupText = `From note: ${file.basename}\n${snippet}`;
+					let markdownUrl = "";
+					let markdownUrlWithHighlight = "";
+					if (metadata.title && metadata.url) {
+						markdownUrl = `[${metadata.title}](${metadata.url})`;
+						const urlWithHighlight = `${metadata.url}#:~:text=${highlight_start_end}`;
+						markdownUrlWithHighlight = `[${metadata.title}](${urlWithHighlight})`;
+						popupText += `\n${markdownUrl}`;
+						popupText += `\n${markdownUrlWithHighlight}`;
+						if (target) {
+							let metaKeyHeld = false;
+							let altKeyHeld = false;
+							const mouseMoveHandler = (e: MouseEvent) => {
+								metaKeyHeld = e.metaKey;
+								altKeyHeld = e.altKey;
+							};
+							const mouseLeaveHandler = () => {
+								clearTimeout(copyTimeout);
+								target.removeEventListener(
 									"mouseleave",
 									mouseLeaveHandler
 								);
-								target.addEventListener(
+								target.removeEventListener(
 									"mousemove",
 									mouseMoveHandler
 								);
-								const copyTimeout = setTimeout(async () => {
-									target.removeEventListener(
-										"mouseleave",
-										mouseLeaveHandler
-									);
-									target.removeEventListener(
-										"mousemove",
-										mouseMoveHandler
-									);
-									if (altKeyHeld && metadata.url) {
-										await navigator.clipboard.writeText(
-											metadata.url
-										);
-										new Notice(
-											"Original article URL copied to clipboard!"
-										);
-									} else if (metaKeyHeld && metadata.url) {
-										const urlWithHighlight = `${metadata.url}#:~:text=${highlight_start_end}`;
-										await navigator.clipboard.writeText(
-											urlWithHighlight
-										);
-										new Notice(
-											"URL with highlight fragment copied to clipboard!"
-										);
-									} else {
-										await navigator.clipboard.writeText(
-											markdownUrlWithHighlight
-										);
-										new Notice(
-											"Markdown URL with highlight copied to clipboard!"
-										);
-									}
-								}, 500);
-							}
-							console.log("Markdown URL:", markdownUrl);
-							console.log(
-								"Markdown URL with highlight:",
-								markdownUrlWithHighlight
+							};
+							target.addEventListener(
+								"mouseleave",
+								mouseLeaveHandler
 							);
+							target.addEventListener(
+								"mousemove",
+								mouseMoveHandler
+							);
+							const copyTimeout = setTimeout(async () => {
+								target.removeEventListener(
+									"mouseleave",
+									mouseLeaveHandler
+								);
+								target.removeEventListener(
+									"mousemove",
+									mouseMoveHandler
+								);
+								if (altKeyHeld && metadata.url) {
+									await navigator.clipboard.writeText(
+										metadata.url
+									);
+									new Notice(
+										"Original article URL copied to clipboard!"
+									);
+								} else if (metaKeyHeld && metadata.url) {
+									const urlWithHighlight = `${metadata.url}#:~:text=${highlight_start_end}`;
+									await navigator.clipboard.writeText(
+										urlWithHighlight
+									);
+									new Notice(
+										"URL with highlight fragment copied to clipboard!"
+									);
+								} else {
+									await navigator.clipboard.writeText(
+										markdownUrlWithHighlight
+									);
+									new Notice(
+										"Markdown URL with highlight copied to clipboard!"
+									);
+								}
+							}, 500);
 						}
-						if (metadata.title) {
-							popupText += `\nFull Title: ${metadata.title}`;
-						}
-						if (metadata.url) {
-							popupText += `\nOriginal article: ${metadata.url}`;
-						}
-						console.log("Readwise URL: ", url);
-						console.log("File Basename: ", file.basename);
-						console.log("Full Title: ", metadata.title);
-						console.log("Original URL: ", metadata.url);
-						console.log("Highlight: ", highlight);
-						console.log("Snippet: ", snippet);
-
-						return popupText;
+						console.log("Markdown URL:", markdownUrl);
+						console.log(
+							"Markdown URL with highlight:",
+							markdownUrlWithHighlight
+						);
 					}
+					if (metadata.title)
+						popupText += `\nFull Title: ${metadata.title}`;
+					if (metadata.url)
+						popupText += `\nOriginal article: ${metadata.url}`;
+					console.log("Readwise URL: ", url);
+					console.log("File Basename: ", file.basename);
+					console.log("Full Title: ", metadata.title);
+					console.log("Original URL: ", metadata.url);
+					console.log("Highlight: ", highlight);
+					console.log("Snippet: ", snippet);
+					return popupText;
 				}
 			}
 		}
