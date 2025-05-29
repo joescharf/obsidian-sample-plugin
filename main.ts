@@ -218,14 +218,14 @@ export default class JoePlugin extends Plugin {
 										"mousemove",
 										mouseMoveHandler
 									);
-									if (metaKeyHeld && metadata.url) {
+									if (altKeyHeld && metadata.url) {
 										await navigator.clipboard.writeText(
 											metadata.url
 										);
 										new Notice(
 											"Original article URL copied to clipboard!"
 										);
-									} else if (altKeyHeld && metadata.url) {
+									} else if (metaKeyHeld && metadata.url) {
 										const urlWithHighlight = `${metadata.url}#:~:text=${highlight_start_end}`;
 										await navigator.clipboard.writeText(
 											urlWithHighlight
@@ -280,30 +280,28 @@ export default class JoePlugin extends Plugin {
 		let url: string | null = null;
 		let title: string | null = null;
 		for (const line of lines) {
-			// Enter Metadata section on '## Metadata' (case-insensitive)
-			if (line.trim().toLowerCase() === "## metadata") {
+			const trimmed = line.trim();
+			if (!inMetadata && trimmed.toLowerCase() === "## metadata") {
 				inMetadata = true;
 				continue;
 			}
-			// Exit Metadata section on next heading (## or #)
-			if (
-				inMetadata &&
-				/^#+ /.test(line) &&
-				line.trim().toLowerCase() !== "## metadata"
-			) {
-				break;
-			}
 			if (inMetadata) {
-				// Match '- URL: <url>' (case-insensitive)
-				const urlMatch = line.match(/^\s*-\s*url:\s*(\S+)/i);
-				if (urlMatch && urlMatch[1]) {
-					url = urlMatch[1];
+				if (
+					/^#+ /.test(trimmed) &&
+					trimmed.toLowerCase() !== "## metadata"
+				)
+					break;
+				if (!url) {
+					const urlMatch = trimmed.match(/^[-*]\s*url:\s*(\S+)/i);
+					if (urlMatch) url = urlMatch[1];
 				}
-				// Match '- Full Title: <title>' (case-insensitive)
-				const titleMatch = line.match(/^\s*-\s*full title:\s*(.+)$/i);
-				if (titleMatch && titleMatch[1]) {
-					title = titleMatch[1].trim();
+				if (!title) {
+					const titleMatch = trimmed.match(
+						/^[-*]\s*full title:\s*(.+)$/i
+					);
+					if (titleMatch) title = titleMatch[1].trim();
 				}
+				if (url && title) break;
 			}
 		}
 		return { url, title };
