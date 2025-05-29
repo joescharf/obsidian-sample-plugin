@@ -145,9 +145,9 @@ export default class JoePlugin extends Plugin {
 						const fullListItem = line.trim();
 						// Remove '- ' from start
 						let highlight = fullListItem.replace(/^-\s*/, "");
-						// Remove '([View Highlight](...))' or similar at the end
+						// Remove everything after (View Highlight) including (View Highlight)
 						highlight = highlight.replace(
-							/\s*\(\[View Highlight\]\([^)]*\)\)\s*$/,
+							/\(\[View Highlight\]\([^)]*\)\).*/,
 							""
 						);
 						// Remove all markdown links: [text](url)
@@ -184,28 +184,63 @@ export default class JoePlugin extends Plugin {
 							popupText += `\n${markdownUrl}`;
 							popupText += `\n${markdownUrlWithHighlight}`;
 							if (target) {
+								let metaKeyHeld = false;
+								let altKeyHeld = false;
+								const mouseMoveHandler = (e: MouseEvent) => {
+									metaKeyHeld = e.metaKey;
+									altKeyHeld = e.altKey;
+								};
 								const mouseLeaveHandler = () => {
 									clearTimeout(copyTimeout);
 									target.removeEventListener(
 										"mouseleave",
 										mouseLeaveHandler
 									);
+									target.removeEventListener(
+										"mousemove",
+										mouseMoveHandler
+									);
 								};
 								target.addEventListener(
 									"mouseleave",
 									mouseLeaveHandler
+								);
+								target.addEventListener(
+									"mousemove",
+									mouseMoveHandler
 								);
 								const copyTimeout = setTimeout(async () => {
 									target.removeEventListener(
 										"mouseleave",
 										mouseLeaveHandler
 									);
-									await navigator.clipboard.writeText(
-										markdownUrlWithHighlight
+									target.removeEventListener(
+										"mousemove",
+										mouseMoveHandler
 									);
-									new Notice(
-										"Markdown URL with highlight copied to clipboard!"
-									);
+									if (metaKeyHeld && metadata.url) {
+										await navigator.clipboard.writeText(
+											metadata.url
+										);
+										new Notice(
+											"Original article URL copied to clipboard!"
+										);
+									} else if (altKeyHeld && metadata.url) {
+										const urlWithHighlight = `${metadata.url}#:~:text=${highlight_start_end}`;
+										await navigator.clipboard.writeText(
+											urlWithHighlight
+										);
+										new Notice(
+											"URL with highlight fragment copied to clipboard!"
+										);
+									} else {
+										await navigator.clipboard.writeText(
+											markdownUrlWithHighlight
+										);
+										new Notice(
+											"Markdown URL with highlight copied to clipboard!"
+										);
+									}
 								}, 500);
 							}
 							console.log("Markdown URL:", markdownUrl);
